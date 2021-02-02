@@ -16,6 +16,7 @@ namespace RestoreMonarchy.QueueBypasser
     {
         protected override void Load()
         {
+            InvokeRepeating("Check", 1, 1);
             Logger.Log($"{Name} {Assembly.GetName().Version} has been loaded!", ConsoleColor.Yellow);
         }
 
@@ -24,7 +25,7 @@ namespace RestoreMonarchy.QueueBypasser
             Logger.Log($"{Name} has been unloaded!", ConsoleColor.Yellow);
         }
 
-        void FixedUpdate()
+        void Check()
         {
             foreach (var pending in Provider.pending.ToList())
             {
