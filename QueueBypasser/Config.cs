@@ -1,28 +1,31 @@
 ﻿using Rocket.API;
+using System.Xml.Serialization;
 
 namespace RestoreMonarchy.QueueBypasser
 {
-    public class Config : IRocketPluginConfiguration
+    public class QueueBypasserConfiguration : IRocketPluginConfiguration
     {
-        public bool enableLogging;
-        public bool adminsBypassQueue;
-        public bool newPlayersBypassQueue;
-        public QueueBypassCooldownOptions playerRelogBypassQueue;
+        public bool EnableLogging { get; set; }
+        public bool AdminsBypassQueue { get; set; }
+        public bool NewPlayersBypassQueue { get; set; }
+        public QueueBypassCooldownOptions PlayerRelogBypassQueue { get; set; }
         public void LoadDefaults()
         {
-            enableLogging = true;
-            adminsBypassQueue = true;
-            newPlayersBypassQueue = false;
-            playerRelogBypassQueue = new QueueBypassCooldownOptions
+            EnableLogging = true;
+            AdminsBypassQueue = true;
+            NewPlayersBypassQueue = false;
+            PlayerRelogBypassQueue = new QueueBypassCooldownOptions
             {
-                enabled = false,
-                cooldown = 900
+                Enabled = false,
+                Cooldown = 900
             };
         }
     }
     public class QueueBypassCooldownOptions
     {
-        public bool enabled;
-        public int cooldown;
+        [XmlAttribute]
+        public bool Enabled { get; set; }
+        [XmlAttribute]
+        public int Cooldown { get; set; }
     }
 }

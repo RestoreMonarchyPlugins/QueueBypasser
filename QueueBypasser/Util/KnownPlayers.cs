@@ -26,7 +26,7 @@ namespace RestoreMonarchy.QueueBypasser.Util
                 }
             }
 
-            if (QueueBypasserPlugin.Instance.Configuration.Instance.enableLogging)
+            if (QueueBypasserPlugin.Instance.Configuration.Instance.EnableLogging)
             {
                 if (loaded.Count == 0)
                 {
