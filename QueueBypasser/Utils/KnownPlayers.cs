@@ -5,15 +5,16 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace RestoreMonarchy.QueueBypasser.Util
+namespace RestoreMonarchy.QueueBypasser.Utils
 {
     internal class KnownPlayers
     {
         private HashSet<CSteamID> players = LoadExistingPlayers();
+
         private static HashSet<CSteamID> LoadExistingPlayers()
         {
-            var location = (PlayerSavedata.hasSync ? "/Sync/" : UnturnedPaths.RootDirectory.FullName + ServerSavedata.transformPath("/Players/"));
-            var loaded = new HashSet<CSteamID>();
+            string location = (PlayerSavedata.hasSync ? "/Sync/" : UnturnedPaths.RootDirectory.FullName + ServerSavedata.transformPath("/Players/"));
+            HashSet<CSteamID> loaded = new();
 
             var scan = Directory.GetDirectories(location).Select(Path.GetFileName);
 
@@ -21,12 +22,15 @@ namespace RestoreMonarchy.QueueBypasser.Util
             {
                 if (ulong.TryParse(i.Split("_".ToCharArray())[0], out ulong num))
                 {
-                    var playerId = new CSteamID(num);
-                    if (!loaded.Contains(playerId)) loaded.Add(playerId);
+                    CSteamID playerId = new CSteamID(num);
+                    if (!loaded.Contains(playerId))
+                    {
+                        loaded.Add(playerId);
+                    }
                 }
             }
 
-            if (QueueBypasserPlugin.Instance.Configuration.Instance.EnableLogging)
+            if (QueueBypasserPlugin.Instance.Configuration.Instance.IsLoggingEnabled)
             {
                 if (loaded.Count == 0)
                 {
@@ -40,10 +44,12 @@ namespace RestoreMonarchy.QueueBypasser.Util
 
             return loaded;
         }
+
         public bool Add(CSteamID playerId)
         {
             return players.Add(playerId);
         }
+
         public bool Contains(CSteamID playerId)
         {
             return players.Contains(playerId);

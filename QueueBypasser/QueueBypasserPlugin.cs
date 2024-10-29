@@ -1,4 +1,4 @@
-﻿using RestoreMonarchy.QueueBypasser.Util;
+﻿using RestoreMonarchy.QueueBypasser.Utils;
 using Rocket.API;
 using Rocket.Core;
 using Rocket.Core.Logging;
@@ -13,34 +13,37 @@ namespace RestoreMonarchy.QueueBypasser
 {
     public class QueueBypasserPlugin : RocketPlugin<QueueBypasserConfiguration>
     {
-        internal static QueueBypasserPlugin Instance;
-        internal Timer checker;
-        internal HashSet<CSteamID> playersFromQueue;
-        internal KnownPlayers knownPlayers;
-        internal PlayerRelogs playersRelogs;
+        public static QueueBypasserPlugin Instance { get; private set; }
+
+        private Timer checker;
+        private HashSet<CSteamID> playersFromQueue;
+        private KnownPlayers knownPlayers;
+        private PlayerRelogs playersRelogs;
+
         protected override void Load()
         {
             Instance = this;
             checker = new Timer(state => Check(), null, 0, 1000);
-            playersFromQueue = new HashSet<CSteamID>();
+            playersFromQueue = [];
 
             Provider.onEnemyConnected += OnConnectedMaxPlayersBack;
             Provider.onRejectingPlayer += OnRejectingPlayer;
 
-            if (Configuration.Instance.NewPlayersBypassQueue)
+            if (Configuration.Instance.ShouldBypassQueueForNewPlayers)
             {
                 knownPlayers = new KnownPlayers();
                 Provider.onEnemyConnected += OnConnected;
             }
 
-            if (Configuration.Instance.PlayerRelogBypassQueue.Enabled)
+            if (Configuration.Instance.RelogBypassSettings.Enabled)
             {
-                playersRelogs = new PlayerRelogs(Configuration.Instance.PlayerRelogBypassQueue.Cooldown);
+                playersRelogs = new PlayerRelogs(Configuration.Instance.RelogBypassSettings.Cooldown);
                 Provider.onEnemyDisconnected += OnDisconnected;
             }
 
             Logger.Log($"{Name} {Assembly.GetName().Version} has been loaded!", ConsoleColor.Yellow);
         }
+
         protected override void Unload()
         {
             Instance = null;
@@ -52,13 +55,13 @@ namespace RestoreMonarchy.QueueBypasser
             Provider.onEnemyConnected -= OnConnectedMaxPlayersBack;
             Provider.onRejectingPlayer -= OnRejectingPlayer;
 
-            if (Configuration.Instance.NewPlayersBypassQueue)
+            if (Configuration.Instance.ShouldBypassQueueForNewPlayers)
             {
                 Provider.onEnemyConnected -= OnConnected;
                 knownPlayers = null;
             }
 
-            if (Configuration.Instance.PlayerRelogBypassQueue.Enabled)
+            if (Configuration.Instance.RelogBypassSettings.Enabled)
             {
                 Provider.onEnemyDisconnected -= OnDisconnected;
                 playersRelogs = null;
@@ -66,14 +69,17 @@ namespace RestoreMonarchy.QueueBypasser
 
             Logger.Log($"{Name} has been unloaded!", ConsoleColor.Yellow);
         }
+
         private void OnConnectedMaxPlayersBack(SteamPlayer player)
         {
             MaxPlayersBack(player.playerID.steamID);
         }
+
         private void OnRejectingPlayer(CSteamID steamID, ESteamRejection rejection, string explanation)
         {
             MaxPlayersBack(steamID);
         }
+
         private void MaxPlayersBack(CSteamID playerId)
         {
             if (playersFromQueue.Contains(playerId))
@@ -82,30 +88,40 @@ namespace RestoreMonarchy.QueueBypasser
                 playersFromQueue.Remove(playerId);
             }
         }
+
         private void OnDisconnected(SteamPlayer player)
         {
-            var playerId = player.playerID.steamID;
+            CSteamID playerId = player.playerID.steamID;
             playersRelogs.Add(playerId);
         }
+
         private void OnConnected(SteamPlayer player)
         {
-            var playerId = player.playerID.steamID;
-            if (!knownPlayers.Contains(playerId)) knownPlayers.Add(playerId);
+            CSteamID playerId = player.playerID.steamID;
+            if (!knownPlayers.Contains(playerId))
+            {
+                knownPlayers.Add(playerId);
+            }
         }
+
         private void Check()
         {
             if (Provider.clients.Count >= Provider.maxPlayers && Provider.pending.Count > 0)
             {
-                var pending = Provider.pending;
+                List<SteamPending> pending = Provider.pending;
 
                 for (int i = 0; i < pending.Count; i++)
                 {
-                    var player = pending[i];
+                    SteamPending player = pending[i];
                     string acceptReason = ResolveAcceptReason(player);
 
                     if (acceptReason != null)
                     {
-                        if (Configuration.Instance.EnableLogging) Logger.Log($"Player {player.playerID.characterName} skipped queue, Reason: {acceptReason}");
+                        if (Configuration.Instance.IsLoggingEnabled) 
+                        {
+                            Logger.Log($"Player {player.playerID.characterName} skipped the queue: {acceptReason}.");
+                        }
+
                         playersFromQueue.Add(player.playerID.steamID);
                         Provider.maxPlayers++;
                         player.sendVerifyPacket();
@@ -113,26 +129,36 @@ namespace RestoreMonarchy.QueueBypasser
                 }
             }
         }
+
         private string ResolveAcceptReason(SteamPending pending)
         {
             CSteamID steamId = pending.playerID.steamID;
-            RocketPlayer player = new RocketPlayer(steamId.ToString(), null, SteamAdminlist.checkAdmin(steamId));
+            RocketPlayer player = new(steamId.ToString(), null, SteamAdminlist.checkAdmin(steamId));
 
-            bool newPlayerPass = Configuration.Instance.NewPlayersBypassQueue && !knownPlayers.Contains(steamId);
-            if (newPlayerPass) return "player is a new player";
+            bool newPlayerPass = Configuration.Instance.ShouldBypassQueueForNewPlayers && !knownPlayers.Contains(steamId);
+            if (newPlayerPass) 
+            {
+                return "New player";
+            }
 
-            bool playerJustLeft = Configuration.Instance.PlayerRelogBypassQueue.Enabled && playersRelogs.Contains(steamId);
+            bool playerJustLeft = Configuration.Instance.RelogBypassSettings.Enabled && playersRelogs.Contains(steamId);
             if (playerJustLeft)
             {
                 playersRelogs.Remove(steamId);
-                return "player relogged";
+                return "Player relogged";
             }
 
-            bool adminPass = Configuration.Instance.AdminsBypassQueue && player.IsAdmin;
-            if (adminPass) return "player is admin";
+            bool adminPass = Configuration.Instance.ShouldBypassQueueForAdmins && player.IsAdmin;
+            if (adminPass)
+            {
+                return "Admin player";
+            }
 
             bool hasPermission = R.Permissions.HasPermission(player, "queuebypasser");
-            if (hasPermission) return "player has permission";
+            if (hasPermission)
+            {
+                return "Player has 'queuebypasser' permission";
+            }
 
             return null;
         }

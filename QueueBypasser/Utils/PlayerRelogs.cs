@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace RestoreMonarchy.QueueBypasser.Util
+namespace RestoreMonarchy.QueueBypasser.Utils
 {
     internal class PlayerRelogs(int seconds)
     {
