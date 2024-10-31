@@ -42,6 +42,7 @@ namespace RestoreMonarchy.QueueBypasser
             }
 
             Logger.Log($"{Name} {Assembly.GetName().Version} has been loaded!", ConsoleColor.Yellow);
+            Logger.Log($"Check out more Unturned plugins at restoremonarchy.com");
         }
 
         protected override void Unload()
